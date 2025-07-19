@@ -1,8 +1,6 @@
 # Suara.id Local Development Environment
 # Complete Docker Compose setup for running the platform locally
 
-version: '3.8'
-
 services:
   # PostgreSQL Database with Indonesian administrative data
   postgres:
