@@ -1,0 +1,141 @@
+# Suara.id Local Development Environment
+# Complete Docker Compose setup for running the platform locally
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database with Indonesian administrative data
+  postgres:
+    image: postgres:15-alpine
+    container_name: suara-postgres
+    environment:
+      POSTGRES_DB: suara_dev
+      POSTGRES_USER: suara
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./packages/database/seed:/docker-entrypoint-initdb.d
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - suara-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U suara -d suara_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: suara-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/etc/redis/redis.conf:ro
+    command: redis-server /etc/redis/redis.conf
+    networks:
+      - suara-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # MinIO for S3-compatible local file storage
+  minio:
+    image: minio/minio:latest
+    container_name: suara-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_DEFAULT_BUCKETS: suara-uploads,suara-processed,suara-backups
+    ports:
+      - "9000:9000"  # API port
+      - "9001:9001"  # Console port
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - suara-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  # MinIO Client for bucket setup
+  minio-setup:
+    image: minio/mc:latest
+    container_name: suara-minio-setup
+    depends_on:
+      - minio
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+    volumes:
+      - ./docker/minio/setup.sh:/setup.sh:ro
+    command: /bin/sh /setup.sh
+    networks:
+      - suara-network
+    restart: "no"
+
+  # Mailhog for email testing (SMS notifications in development)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: suara-mailhog
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI port
+    networks:
+      - suara-network
+    restart: unless-stopped
+
+  # Adminer for database administration
+  adminer:
+    image: adminer:latest
+    container_name: suara-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: "galkaev"
+    networks:
+      - suara-network
+    restart: unless-stopped
+
+  # Redis Commander for Redis administration
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: suara-redis-commander
+    environment:
+      REDIS_HOSTS: "redis:redis:6379"
+      HTTP_USER: admin
+      HTTP_PASSWORD: admin123
+    ports:
+      - "8081:8081"
+    networks:
+      - suara-network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: suara_postgres_data
+  redis_data:
+    name: suara_redis_data
+  minio_data:
+    name: suara_minio_data
+
+networks:
+  suara-network:
+    name: suara-network
+    driver: bridge
