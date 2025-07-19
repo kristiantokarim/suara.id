@@ -307,7 +307,7 @@ model AnalyticsEvent {
   data            Json         // Event-specific data
   
   // Geographic context
-  coordinates     Float[]?
+  coordinates     Float[]
   kelurahan       String?
   kecamatan       String?
   kabupaten       String?
