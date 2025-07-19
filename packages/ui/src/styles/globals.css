@@ -1,0 +1,297 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Indonesian-friendly fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+@layer base {
+  /* Global reset with Indonesian user preferences in mind */
+  html {
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.6;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Better font rendering for Indonesian text */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900;
+    /* Ensure touch scrolling works well on mobile */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+  }
+
+  /* Improve focus indicators for accessibility */
+  *:focus {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  }
+
+  /* Better button focus for touch interfaces */
+  button:focus,
+  [role="button"]:focus {
+    @apply ring-2 ring-primary-500 ring-offset-2;
+  }
+
+  /* Ensure sufficient contrast for Indonesian users */
+  ::selection {
+    @apply bg-primary-200 text-primary-900;
+  }
+
+  ::-moz-selection {
+    @apply bg-primary-200 text-primary-900;
+  }
+
+  /* Smooth scrolling for better UX */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    body {
+      @apply contrast-125;
+    }
+  }
+
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Dark mode support (prepared for future) */
+  @media (prefers-color-scheme: dark) {
+    html {
+      color-scheme: dark;
+    }
+  }
+}
+
+@layer components {
+  /* Indonesian-specific component patterns */
+  
+  /* Trust level indicators */
+  .trust-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .trust-badge--basic {
+    @apply bg-trust-basic/10 text-trust-basic border border-trust-basic/20;
+  }
+  
+  .trust-badge--verified {
+    @apply bg-trust-verified/10 text-trust-verified border border-trust-verified/20;
+  }
+  
+  .trust-badge--premium {
+    @apply bg-trust-premium/10 text-trust-premium border border-trust-premium/20;
+  }
+
+  /* Category indicators for Indonesian civic issues */
+  .category-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium;
+  }
+  
+  .category-badge--infrastructure {
+    @apply bg-category-infrastructure/10 text-category-infrastructure border border-category-infrastructure/20;
+  }
+  
+  .category-badge--cleanliness {
+    @apply bg-category-cleanliness/10 text-category-cleanliness border border-category-cleanliness/20;
+  }
+  
+  .category-badge--lighting {
+    @apply bg-category-lighting/10 text-category-lighting border border-category-lighting/20;
+  }
+  
+  .category-badge--water {
+    @apply bg-category-water/10 text-category-water border border-category-water/20;
+  }
+  
+  .category-badge--environment {
+    @apply bg-category-environment/10 text-category-environment border border-category-environment/20;
+  }
+  
+  .category-badge--safety {
+    @apply bg-category-safety/10 text-category-safety border border-category-safety/20;
+  }
+
+  /* Chat bubble patterns for Indonesian conversation flow */
+  .chat-bubble {
+    @apply max-w-sm rounded-lg px-4 py-2 break-words;
+  }
+  
+  .chat-bubble--user {
+    @apply bg-primary-500 text-white ml-auto rounded-br-sm;
+  }
+  
+  .chat-bubble--bot {
+    @apply bg-white text-gray-900 border border-gray-200 mr-auto rounded-bl-sm;
+  }
+  
+  .chat-bubble--system {
+    @apply bg-gray-100 text-gray-600 text-center text-sm italic mx-auto;
+  }
+
+  /* Form components optimized for Indonesian mobile users */
+  .form-input {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg 
+           focus:border-primary-500 focus:ring-1 focus:ring-primary-500
+           text-base touch-target transition-colors duration-200;
+  }
+  
+  .form-input--error {
+    @apply border-error ring-1 ring-error;
+  }
+  
+  .form-textarea {
+    @apply form-input resize-none min-h-[100px];
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+  
+  .form-error {
+    @apply text-error text-sm mt-1;
+  }
+  
+  .form-help {
+    @apply text-gray-500 text-sm mt-1;
+  }
+
+  /* Button patterns for Indonesian UI preferences */
+  .btn {
+    @apply inline-flex items-center justify-center font-medium rounded-lg 
+           transition-all duration-200 touch-target focus:outline-none 
+           focus:ring-2 focus:ring-offset-2 disabled:opacity-50 
+           disabled:cursor-not-allowed;
+  }
+  
+  .btn--primary {
+    @apply bg-primary-500 text-white hover:bg-primary-600 
+           focus:ring-primary-500 active:bg-primary-700;
+  }
+  
+  .btn--secondary {
+    @apply bg-white text-gray-700 border border-gray-300 
+           hover:bg-gray-50 focus:ring-primary-500 active:bg-gray-100;
+  }
+  
+  .btn--danger {
+    @apply bg-error text-white hover:bg-red-600 
+           focus:ring-error active:bg-red-700;
+  }
+  
+  .btn--ghost {
+    @apply text-gray-700 hover:bg-gray-100 focus:ring-primary-500;
+  }
+  
+  .btn--sm {
+    @apply px-3 py-2 text-sm;
+  }
+  
+  .btn--md {
+    @apply px-4 py-3 text-base;
+  }
+  
+  .btn--lg {
+    @apply px-6 py-4 text-lg;
+  }
+
+  /* Card patterns for content display */
+  .card {
+    @apply bg-white rounded-lg border border-gray-200 shadow-soft overflow-hidden;
+  }
+  
+  .card--elevated {
+    @apply shadow-medium hover:shadow-strong transition-shadow duration-200;
+  }
+  
+  .card--interactive {
+    @apply cursor-pointer hover:border-primary-300 transition-colors duration-200;
+  }
+
+  /* Loading states */
+  .skeleton {
+    @apply bg-gray-200 animate-pulse;
+  }
+  
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-gray-300 border-t-primary-500;
+  }
+
+  /* Indonesian flag element for branding */
+  .indonesia-flag {
+    @apply h-6 w-10 rounded-sm overflow-hidden shadow-sm;
+    background: linear-gradient(to bottom, #ef4444 50%, #ffffff 50%);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+}
+
+@layer utilities {
+  /* Text utilities for Indonesian content */
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Utilities for better mobile experience */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Scrollbar styling */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+}
