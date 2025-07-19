@@ -1,0 +1,395 @@
+// Prisma schema for Suara.id platform
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User and Authentication
+model User {
+  id                String              @id @default(cuid())
+  phone             String              @unique
+  phoneVerified     Boolean             @default(false)
+  phoneVerifiedAt   DateTime?
+  name              String?
+  language          String              @default("id") // Indonesian
+  preferredLanguage String?             // Regional dialect
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  // Relations
+  trustScore        UserTrustScore?
+  submissions       Submission[]
+  verifications     Verification[]
+  endorsements      CommunityEndorsement[] @relation("EndorsedUser")
+  givenEndorsements CommunityEndorsement[] @relation("EndorsingUser")
+  
+  @@map("users")
+}
+
+model UserTrustScore {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Trust level calculation
+  trustScore       Float     @default(1.0) // 1.0-5.0
+  trustLevel       TrustLevel @default(BASIC)
+  
+  // Verification status
+  phoneVerified    Boolean   @default(false)
+  ktpVerified      Boolean   @default(false)
+  selfieVerified   Boolean   @default(false)
+  socialVerified   Boolean   @default(false)
+  
+  // Historical factors
+  submissionCount  Int       @default(0)
+  accuracyScore    Float     @default(0.0) // 0.0-1.0
+  communityScore   Float     @default(0.0) // From endorsements
+  
+  lastCalculated   DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  @@map("user_trust_scores")
+}
+
+model Verification {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type         VerificationType
+  status       VerificationStatus @default(PENDING)
+  
+  // Document data (encrypted)
+  documentUrl  String?          // KTP image URL
+  selfieUrl    String?          // Selfie image URL
+  socialUrl    String?          // Social media profile URL
+  
+  // Extracted data
+  extractedData Json?           // OCR results, social data, etc.
+  
+  // Verification results
+  confidence   Float?           // AI confidence score
+  manualReview Boolean          @default(false)
+  reviewedBy   String?          // Admin user ID
+  reviewedAt   DateTime?
+  
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  
+  @@map("verifications")
+}
+
+model CommunityEndorsement {
+  id            String   @id @default(cuid())
+  endorsingUserId String
+  endorsedUserId  String
+  endorsingUser User     @relation("EndorsingUser", fields: [endorsingUserId], references: [id], onDelete: Cascade)
+  endorsedUser  User     @relation("EndorsedUser", fields: [endorsedUserId], references: [id], onDelete: Cascade)
+  
+  message       String?
+  createdAt     DateTime @default(now())
+  
+  @@unique([endorsingUserId, endorsedUserId])
+  @@map("community_endorsements")
+}
+
+// Submissions and Issues
+model Submission {
+  id               String                    @id @default(cuid())
+  userId           String
+  user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Conversation data
+  conversationLog  Json                      // Chat history
+  
+  // Final extracted data
+  description      String
+  category         IssueCategory?
+  location         Json                      // {coordinates: [lat, lng], address: string, accuracy: number}
+  images           String[]                  // Array of image URLs
+  metadata         Json?                     // Additional data
+  
+  // Processing status
+  status           SubmissionStatus          @default(PENDING)
+  processed        Boolean                   @default(false)
+  processedAt      DateTime?
+  
+  // Quality and trust
+  qualityScore     SubmissionQualityScore?
+  trustWeight      Float?                    // Final clustering weight
+  
+  // Relations
+  issue            Issue?
+  clusterId        String?
+  cluster          IssueCluster?             @relation(fields: [clusterId], references: [id])
+  
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  
+  @@map("submissions")
+}
+
+model SubmissionQualityScore {
+  id              String     @id @default(cuid())
+  submissionId    String     @unique
+  submission      Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  
+  // Quality metrics (0-12 total)
+  textScore       Float      @default(0) // 0-3
+  mediaScore      Float      @default(0) // 0-4
+  locationScore   Float      @default(0) // 0-2
+  aiValidationScore Float    @default(0) // 0-3
+  
+  totalScore      Float      @default(0) // Sum of above
+  finalWeight     Float      @default(0) // trustScore * qualityScore / 12
+  
+  // Detailed analysis
+  analysis        Json?      // Detailed scoring breakdown
+  
+  calculatedAt    DateTime   @default(now())
+  
+  @@map("submission_quality_scores")
+}
+
+model Issue {
+  id              String        @id @default(cuid())
+  submissionId    String        @unique
+  submission      Submission    @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  
+  // Processed issue data
+  title           String
+  description     String
+  category        IssueCategory
+  severity        IssueSeverity @default(MEDIUM)
+  priority        Int           @default(0) // Calculated priority score
+  
+  // Location data
+  coordinates     Float[]       // [lat, lng]
+  address         String
+  kelurahan       String?       // Administrative area
+  kecamatan       String?
+  kabupaten       String?
+  provinsi        String?
+  
+  // Status tracking
+  status          IssueStatus   @default(REPORTED)
+  assignedTo      String?       // Government official/department
+  
+  // Relations
+  clusterId       String?
+  cluster         IssueCluster? @relation(fields: [clusterId], references: [id])
+  responses       IssueResponse[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@map("issues")
+}
+
+model IssueCluster {
+  id              String      @id @default(cuid())
+  
+  // Cluster metadata
+  title           String
+  description     String
+  category        IssueCategory
+  severity        IssueSeverity @default(MEDIUM)
+  
+  // Geographic bounds
+  centerLat       Float
+  centerLng       Float
+  radiusMeters    Float
+  
+  // Administrative area
+  kelurahan       String?
+  kecamatan       String?
+  kabupaten       String?
+  provinsi        String?
+  
+  // Aggregated data
+  issueCount      Int         @default(0)
+  totalWeight     Float       @default(0)
+  avgQuality      Float       @default(0)
+  
+  // Status
+  status          ClusterStatus @default(ACTIVE)
+  priority        Int         @default(0)
+  
+  // Relations
+  submissions     Submission[]
+  issues          Issue[]
+  insights        ClusterInsight[]
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@map("issue_clusters")
+}
+
+model ClusterInsight {
+  id              String       @id @default(cuid())
+  clusterId       String
+  cluster         IssueCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  
+  // Generated insights
+  summary         String
+  trends          Json         // Trend analysis data
+  recommendations Json         // AI-generated recommendations
+  
+  // Time period
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  generatedAt     DateTime     @default(now())
+  
+  @@map("cluster_insights")
+}
+
+model IssueResponse {
+  id              String       @id @default(cuid())
+  issueId         String
+  issue           Issue        @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  
+  // Response data
+  respondentType  RespondentType
+  respondentId    String       // Government official/department ID
+  respondentName  String
+  
+  message         String
+  status          IssueStatus?  // New status if updated
+  attachments     String[]     // Image/document URLs
+  
+  // Timeline
+  responseTime    DateTime?    // When action was taken
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@map("issue_responses")
+}
+
+// Admin and Government Users
+model AdminUser {
+  id              String       @id @default(cuid())
+  email           String       @unique
+  name            String
+  role            AdminRole
+  
+  // Jurisdiction (for government officials)
+  provinsi        String?
+  kabupaten       String?
+  kecamatan       String?
+  kelurahan       String?
+  department      String?
+  
+  // Authentication
+  passwordHash    String
+  lastLogin       DateTime?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@map("admin_users")
+}
+
+// Analytics and Reporting
+model AnalyticsEvent {
+  id              String       @id @default(cuid())
+  
+  eventType       String       // 'submission_created', 'user_verified', etc.
+  userId          String?
+  data            Json         // Event-specific data
+  
+  // Geographic context
+  coordinates     Float[]?
+  kelurahan       String?
+  kecamatan       String?
+  kabupaten       String?
+  provinsi        String?
+  
+  timestamp       DateTime     @default(now())
+  
+  @@map("analytics_events")
+}
+
+// Enums
+enum TrustLevel {
+  BASIC     // 1.0-2.0: Phone verified only
+  VERIFIED  // 2.1-4.0: KTP + selfie verified
+  PREMIUM   // 4.1-5.0: Social + community verified
+}
+
+enum VerificationType {
+  PHONE
+  KTP
+  SELFIE
+  SOCIAL_FACEBOOK
+  SOCIAL_INSTAGRAM
+  SOCIAL_WHATSAPP
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum SubmissionStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  REJECTED
+  SPAM
+}
+
+enum IssueCategory {
+  INFRASTRUCTURE  // Roads, bridges, public facilities
+  CLEANLINESS     // Waste, sanitation, pollution
+  LIGHTING        // Street lights, public lighting
+  WATER_DRAINAGE  // Water supply, drainage, flooding
+  ENVIRONMENT     // Trees, parks, air quality
+  SAFETY          // Security, traffic safety
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IssueStatus {
+  REPORTED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+enum ClusterStatus {
+  ACTIVE
+  RESOLVED
+  ARCHIVED
+}
+
+enum RespondentType {
+  GOVERNMENT_OFFICIAL
+  DEPARTMENT
+  CONTRACTOR
+  COMMUNITY_LEADER
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  GOVERNMENT_ADMIN
+  MODERATOR
+  ANALYST
+}
