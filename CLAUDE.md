@@ -54,16 +54,29 @@
 
 ### 🏗️ **Development Standards & Best Practices**
 
+#### **Code Quality Philosophy**
+
+**Pragmatic Excellence**: Write code that is maintainable, testable, and follows best practices without over-engineering.
+
+**Core Principles:**
+- **Clarity over Cleverness**: Code should be easy to understand and maintain
+- **Pragmatic DRY**: Don't repeat yourself, but don't abstract prematurely
+- **Fail Fast**: Validate inputs early and provide clear error messages
+- **Layered Architecture**: Separate concerns with clear boundaries
+- **Indonesian Context**: Consider local requirements in every implementation
+
 #### **Code Quality Requirements**
 
 ```typescript
-// TypeScript Configuration
+// TypeScript Configuration - Strict Mode Required
 {
   "compilerOptions": {
     "strict": true,
     "noImplicitReturns": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "noImplicitAny": true,
+    "exactOptionalPropertyTypes": true
   }
 }
 ```
@@ -74,6 +87,299 @@
 - **JSDoc Documentation**: All public functions must have comprehensive JSDoc
 - **Error Handling**: Proper error types, logging, and user-friendly messages
 - **Security**: Input validation, rate limiting, data encryption
+
+#### **Architecture & Design Patterns**
+
+**1. Layered Architecture**
+
+```typescript
+// Example: Authentication Package Structure
+packages/auth/src/
+├── models/           # Data models and types
+├── services/         # Business logic layer
+├── providers/        # External service integrations
+├── utils/           # Pure utility functions
+├── middleware/      # Express/Next.js middleware
+└── index.ts         # Public API exports
+
+// Clear separation of concerns
+export class KtpVerificationService {
+  constructor(
+    private ocrProvider: OcrProvider,        // Dependency injection
+    private faceMatchService: FaceMatchService,
+    private logger: Logger
+  ) {}
+  
+  async verifyKtp(request: KtpVerificationRequest): Promise<Result<KtpData>> {
+    // Business logic only - no external dependencies mixed in
+  }
+}
+```
+
+**2. Dependency Injection Pattern**
+
+```typescript
+// Good: Dependencies injected, testable
+export class UserService {
+  constructor(
+    private database: DatabaseClient,
+    private logger: Logger,
+    private emailService: EmailService
+  ) {}
+}
+
+// Bad: Hard dependencies, untestable
+export class UserService {
+  async createUser() {
+    const db = new PrismaClient(); // Hard dependency!
+    const logger = console;        // Hard dependency!
+  }
+}
+```
+
+**3. Result Pattern for Error Handling**
+
+```typescript
+// Consistent error handling across the platform
+export type Result<T> = 
+  | { success: true; data: T }
+  | { success: false; error: string; issues?: string[] };
+
+// Implementation
+export async function validateNik(nik: string): Promise<Result<NikData>> {
+  if (nik.length !== 16) {
+    return { 
+      success: false, 
+      error: 'NIK harus 16 digit',
+      issues: ['NIK format invalid'] 
+    };
+  }
+  
+  const nikData = parseNikData(nik);
+  return { success: true, data: nikData };
+}
+```
+
+**4. Factory Pattern for Configuration**
+
+```typescript
+// Environment-aware service creation
+export class ServiceFactory {
+  static createOcrService(): OcrProvider {
+    if (process.env.NODE_ENV === 'development') {
+      return new MockOcrProvider();
+    }
+    return new GoogleVisionOcrProvider();
+  }
+  
+  static createSmsService(): SmsProvider {
+    if (process.env.NODE_ENV === 'test') {
+      return new MockSmsProvider();
+    }
+    return new TwilioSmsProvider();
+  }
+}
+```
+
+#### **Code Quality Guards**
+
+**1. Function Design**
+
+```typescript
+// Good: Single responsibility, clear purpose
+export function normalizeIndonesianPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  
+  if (digits.startsWith('0')) {
+    return '+62' + digits.substring(1);
+  }
+  if (digits.startsWith('62')) {
+    return '+' + digits;
+  }
+  if (digits.startsWith('8')) {
+    return '+62' + digits;
+  }
+  
+  return digits.startsWith('+') ? digits : '+' + digits;
+}
+
+// Bad: Multiple responsibilities
+export function processUserRegistration(phone: string, name: string) {
+  // Normalizes phone + validates + sends SMS + saves to DB + logs
+  // Too many responsibilities!
+}
+```
+
+**2. Type Safety & Validation**
+
+```typescript
+// Good: Strong typing with validation
+export interface CreateUserRequest {
+  phone: string;
+  name: string;
+  language: LanguageCode;
+}
+
+export function validateCreateUserRequest(
+  data: unknown
+): Result<CreateUserRequest> {
+  const schema = z.object({
+    phone: z.string().refine(validateIndonesianPhone, 'Invalid Indonesian phone'),
+    name: z.string().min(2, 'Name too short').max(100, 'Name too long'),
+    language: z.enum(['id', 'jv', 'su', 'bt', 'min', 'bug', 'ban'])
+  });
+  
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    return { 
+      success: false, 
+      error: 'Validation failed',
+      issues: result.error.issues.map(i => i.message)
+    };
+  }
+  
+  return { success: true, data: result.data };
+}
+
+// Bad: Weak typing
+export function createUser(data: any) {
+  // No validation, runtime errors waiting to happen
+}
+```
+
+**3. Modular Design**
+
+```typescript
+// Good: Composable, testable modules
+export const indonesianValidators = {
+  phone: (phone: string) => validateIndonesianPhone(phone),
+  nik: (nik: string) => validateNik(nik),
+  address: (address: string) => validateIndonesianAddress(address)
+};
+
+export const authWorkflow = {
+  async verifyPhone(phone: string): Promise<Result<OtpData>> {
+    const validation = indonesianValidators.phone(phone);
+    if (!validation.success) return validation;
+    
+    return await otpService.sendOtp(phone);
+  },
+  
+  async verifyKtp(ktpImage: Buffer): Promise<Result<KtpData>> {
+    return await ktpService.verifyKtp(ktpImage);
+  }
+};
+
+// Bad: Monolithic, hard to test
+export async function doEverything(phone: string, ktpImage: Buffer) {
+  // 200 lines of mixed validation, business logic, external calls
+}
+```
+
+**4. Performance Considerations**
+
+```typescript
+// Good: Lazy loading, caching, pagination
+export class SubmissionService {
+  private cache = new Map<string, CachedSubmission>();
+  
+  async getSubmissions(
+    filters: SubmissionFilters,
+    pagination: PaginationParams
+  ): Promise<PaginatedResult<Submission>> {
+    const cacheKey = createCacheKey(filters, pagination);
+    
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey)!;
+    }
+    
+    const result = await this.database.submissions.findMany({
+      where: filters,
+      skip: pagination.offset,
+      take: pagination.limit,
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    this.cache.set(cacheKey, result);
+    return result;
+  }
+}
+
+// Bad: N+1 queries, no caching
+export async function getAllSubmissions() {
+  const submissions = await db.submission.findMany();
+  
+  // N+1 query problem
+  for (const submission of submissions) {
+    submission.user = await db.user.findUnique({ 
+      where: { id: submission.userId } 
+    });
+  }
+  
+  return submissions;
+}
+```
+
+#### **Anti-Patterns to Avoid**
+
+**❌ Common Mistakes:**
+
+1. **Premature Abstraction**
+   ```typescript
+   // Bad: Over-abstracted for no reason
+   abstract class BaseValidator<T> {
+     abstract validate(input: T): ValidationResult;
+   }
+   
+   // Good: Simple function when abstraction isn't needed
+   export function validatePhone(phone: string): Result<string> {
+     return validateIndonesianPhone(phone);
+   }
+   ```
+
+2. **God Objects/Functions**
+   ```typescript
+   // Bad: Does everything
+   class UserManager {
+     createUser() { /* 50 lines */ }
+     validateUser() { /* 40 lines */ }
+     sendWelcomeEmail() { /* 30 lines */ }
+     updateProfile() { /* 60 lines */ }
+     deleteUser() { /* 45 lines */ }
+   }
+   
+   // Good: Single responsibility
+   class UserService { /* user business logic only */ }
+   class UserValidator { /* validation only */ }
+   class EmailService { /* email operations only */ }
+   ```
+
+3. **Magic Numbers/Strings**
+   ```typescript
+   // Bad: Magic values
+   if (user.trustLevel > 2.1) { /* ... */ }
+   
+   // Good: Named constants
+   import { TRUST_LEVELS } from '@suara/config';
+   if (user.trustLevel >= TRUST_LEVELS.VERIFIED_THRESHOLD) { /* ... */ }
+   ```
+
+4. **Inconsistent Error Handling**
+   ```typescript
+   // Bad: Mixed error patterns
+   function someFunction() {
+     if (error1) throw new Error('Error 1');
+     if (error2) return null;
+     if (error3) return { error: 'Error 3' };
+   }
+   
+   // Good: Consistent Result pattern
+   function someFunction(): Result<Data> {
+     if (error1) return { success: false, error: 'Error 1' };
+     if (error2) return { success: false, error: 'Error 2' };
+     return { success: true, data: result };
+   }
+   ```
 
 #### **Testing Requirements**
 
@@ -413,16 +719,33 @@ Indonesia
 #### **Quality Assurance Checklist**
 
 **Before Marking Component Complete:**
+
+**📋 Code Quality:**
+- [ ] **Architecture**: Proper layered design with clear separation of concerns
+- [ ] **Single Responsibility**: Each function/class has one clear purpose
+- [ ] **Dependency Injection**: External dependencies injected, not hard-coded
+- [ ] **Result Pattern**: Consistent error handling using Result<T> type
+- [ ] **Type Safety**: Strong typing, no `any` types, comprehensive interfaces
+- [ ] **Modular Design**: Composable functions, avoid god objects/functions
+- [ ] **Performance**: Proper caching, pagination, avoid N+1 queries
+- [ ] **Anti-Patterns**: No premature abstraction, magic numbers, or mixed error patterns
+
+**🧪 Testing & Documentation:**
 - [ ] **Unit Tests**: 80%+ coverage, all critical paths tested
 - [ ] **Integration Tests**: External dependencies mocked or tested
 - [ ] **Documentation**: README, JSDoc, usage examples complete
+- [ ] **TypeScript**: Strict mode passes, comprehensive type checking
+
+**🏗️ Infrastructure & Context:**
 - [ ] **Docker Setup**: Component works in local Docker environment
-- [ ] **TypeScript**: Strict mode passes, no `any` types
 - [ ] **Indonesian Context**: Local requirements implemented and tested
 - [ ] **Security Review**: Input validation, rate limiting, data protection
-- [ ] **Performance**: Database queries optimized, caching implemented
+- [ ] **Environment Support**: Works in development, test, and production modes
+
+**📝 Version Control:**
 - [ ] **Git Commits**: All changes committed with conventional commit messages
 - [ ] **Version Control**: CLAUDE.md updated to reflect completion status
+- [ ] **Code Review**: Implementation follows established patterns and principles
 
 ---
 
