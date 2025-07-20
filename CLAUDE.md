@@ -363,7 +363,46 @@ Indonesia
    docker-compose up --build
    ```
 
-5. **Integration & Documentation**
+5. **Git Commits & Version Control**
+   ```bash
+   # 1. Stage and commit implementation with conventional commits
+   git add packages/[component-name]/src
+   git commit -m "feat([component-name]): implement core functionality
+   
+   - Add main component logic with TypeScript strict mode
+   - Include comprehensive JSDoc documentation
+   - Add Indonesian-specific features and validation
+   
+   🤖 Generated with [Claude Code](https://claude.ai/code)
+   
+   Co-Authored-By: Claude <noreply@anthropic.com>"
+   
+   # 2. Commit tests separately  
+   git add packages/[component-name]/__tests__
+   git commit -m "test([component-name]): add comprehensive unit tests
+   
+   - Add unit tests with 80%+ coverage
+   - Include Indonesian-specific test cases
+   - Add integration tests for external dependencies
+   
+   🤖 Generated with [Claude Code](https://claude.ai/code)
+   
+   Co-Authored-By: Claude <noreply@anthropic.com>"
+   
+   # 3. Commit documentation updates
+   git add packages/[component-name]/README.md CLAUDE.md
+   git commit -m "docs([component-name]): add production-ready documentation
+   
+   - Add comprehensive README with setup and usage
+   - Update CLAUDE.md implementation status
+   - Include API documentation and examples
+   
+   🤖 Generated with [Claude Code](https://claude.ai/code)
+   
+   Co-Authored-By: Claude <noreply@anthropic.com>"
+   ```
+
+6. **Integration & Documentation**
    ```bash
    # 1. Update main package exports
    # 2. Add component to monorepo build pipeline
@@ -382,6 +421,90 @@ Indonesia
 - [ ] **Indonesian Context**: Local requirements implemented and tested
 - [ ] **Security Review**: Input validation, rate limiting, data protection
 - [ ] **Performance**: Database queries optimized, caching implemented
+- [ ] **Git Commits**: All changes committed with conventional commit messages
+- [ ] **Version Control**: CLAUDE.md updated to reflect completion status
+
+---
+
+### 📝 **Git Workflow & Commit Standards**
+
+#### **Conventional Commit Format**
+
+All commits MUST follow conventional commit format:
+
+```
+<type>(<scope>): <description>
+
+<body>
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Commit Types:**
+- `feat`: New features or functionality
+- `fix`: Bug fixes
+- `docs`: Documentation changes
+- `test`: Adding or updating tests
+- `refactor`: Code refactoring without feature changes
+- `chore`: Maintenance tasks, dependency updates
+- `style`: Code formatting, missing semicolons, etc.
+
+**Scopes:**
+- Package names: `auth`, `ui`, `database`, `config`, `ai`, `scoring`
+- App names: `web`, `api`, `admin`
+- General: `docker`, `deps`, `workflow`
+
+#### **Commit Workflow Requirements**
+
+**ALWAYS commit changes as you work:**
+
+1. **After implementing core functionality**: `feat(scope): implement [feature]`
+2. **After adding tests**: `test(scope): add comprehensive unit tests` 
+3. **After updating documentation**: `docs(scope): add production-ready documentation`
+4. **After fixing issues**: `fix(scope): resolve [specific issue]`
+
+**Examples:**
+```bash
+# Implementation commit
+git commit -m "feat(auth): implement Indonesian KTP verification
+
+- Add NIK validation with demographic extraction
+- Include face matching for selfie verification
+- Support Indonesian administrative hierarchy validation
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# Documentation commit  
+git commit -m "docs: update project status to reflect completed implementations
+
+- Mark Database Schema Implementation as completed
+- Mark Authentication System as completed
+- Align project status with actual codebase state
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+```
+
+#### **When to Commit**
+
+**Commit frequently and atomically:**
+
+- ✅ **After each logical unit of work** (single feature, bug fix, etc.)
+- ✅ **Before switching between different tasks** 
+- ✅ **After completing testing for a component**
+- ✅ **After updating documentation to reflect changes**
+- ✅ **Before asking user for feedback or approval**
+
+**Never commit:**
+- ❌ Multiple unrelated changes in one commit
+- ❌ Incomplete or broken functionality
+- ❌ Without proper conventional commit message
+- ❌ Without updating relevant documentation
 
 ---
 
