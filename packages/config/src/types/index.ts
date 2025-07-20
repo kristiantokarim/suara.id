@@ -130,6 +130,26 @@ export interface SocialConfig {
   };
 }
 
+// Result pattern for consistent error handling
+export type Result<T> = 
+  | { success: true; data: T }
+  | { success: false; error: string; issues?: string[] };
+
+// Success helper function
+export function success<T>(data: T): Result<T> {
+  return { success: true, data };
+}
+
+// Error helper function
+export function failure<T>(error: string, issues?: string[]): Result<T> {
+  return { success: false, error, issues };
+}
+
+// Result validation helper
+export function isSuccess<T>(result: Result<T>): result is { success: true; data: T } {
+  return result.success;
+}
+
 // Error types
 export interface ValidationError {
   field: string;
