@@ -1,4 +1,5 @@
 import { prisma } from '../client';
+import { LIMITS, type Result, success, failure } from '@suara/config';
 import type { 
   User, 
   UserWithTrustScore, 
@@ -53,88 +54,181 @@ export async function createUser(data: {
 }
 
 /**
- * Update user trust score
+ * Calculates trust score based on verification factors
+ */
+function calculateTrustScore(updates: TrustScoreUpdateInput): {
+  score: number;
+  level: TrustLevel;
+} {
+  let score = LIMITS.TRUST_SCORE.DEFAULT;
+
+  // Verification bonuses using constants
+  if (updates.phoneVerified) {
+    score += LIMITS.TRUST_SCORE.PHONE_VERIFICATION_BONUS;
+  }
+  if (updates.ktpVerified) {
+    score += LIMITS.TRUST_SCORE.KTP_VERIFICATION_BONUS;
+  }
+  if (updates.selfieVerified) {
+    score += LIMITS.TRUST_SCORE.SELFIE_VERIFICATION_BONUS;
+  }
+  if (updates.socialVerified) {
+    score += LIMITS.TRUST_SCORE.SOCIAL_VERIFICATION_BONUS;
+  }
+  
+  // Historical accuracy bonus
+  if (updates.accuracyScore) {
+    score += updates.accuracyScore * LIMITS.TRUST_SCORE.ACCURACY_BONUS_MAX;
+  }
+  
+  // Submission history bonus (experience points)
+  if (updates.submissionCount && updates.submissionCount > 5) {
+    score += Math.min(
+      LIMITS.TRUST_SCORE.SUBMISSION_HISTORY_MAX,
+      updates.submissionCount * 0.01
+    );
+  }
+
+  // Cap score at maximum
+  const finalScore = Math.min(LIMITS.TRUST_SCORE.MAX, score);
+
+  // Determine trust level using constants
+  let level: TrustLevel = 'BASIC';
+  if (finalScore >= LIMITS.TRUST_SCORE.PREMIUM_THRESHOLD) {
+    level = 'PREMIUM';
+  } else if (finalScore >= LIMITS.TRUST_SCORE.VERIFIED_THRESHOLD) {
+    level = 'VERIFIED';
+  }
+
+  return { score: finalScore, level };
+}
+
+/**
+ * Update user trust score using Result pattern
  */
 export async function updateTrustScore(
   userId: string, 
   updates: TrustScoreUpdateInput
-): Promise<void> {
-  const trustScore = await prisma.userTrustScore.findUnique({
-    where: { userId },
-  });
+): Promise<Result<{ score: number; level: TrustLevel }>> {
+  try {
+    // Input validation
+    if (!userId) {
+      return failure('User ID is required');
+    }
 
-  if (!trustScore) {
-    throw new Error('Trust score not found');
+    // Check if trust score exists
+    const existingTrustScore = await prisma.userTrustScore.findUnique({
+      where: { userId },
+    });
+
+    if (!existingTrustScore) {
+      return failure('Trust score record not found for user');
+    }
+
+    // Calculate new trust score
+    const { score, level } = calculateTrustScore(updates);
+
+    // Update in database
+    await prisma.userTrustScore.update({
+      where: { userId },
+      data: {
+        ...updates,
+        trustScore: score,
+        trustLevel: level,
+        lastCalculated: new Date(),
+      },
+    });
+
+    return success({ score, level });
+
+  } catch (error) {
+    return failure(
+      'Failed to update trust score',
+      [error instanceof Error ? error.message : 'Unknown database error']
+    );
   }
-
-  // Calculate new trust score
-  let newScore = 1.0; // Base score
-  let newLevel: TrustLevel = 'BASIC';
-
-  if (updates.phoneVerified) newScore += 0.5;
-  if (updates.ktpVerified) newScore += 1.5;
-  if (updates.selfieVerified) newScore += 0.5;
-  if (updates.socialVerified) newScore += 1.0;
-  
-  // Add historical factors
-  if (updates.accuracyScore) newScore += updates.accuracyScore * 0.5;
-  if (updates.submissionCount && updates.submissionCount > 5) {
-    newScore += Math.min(0.3, updates.submissionCount * 0.05);
-  }
-
-  // Determine trust level
-  if (newScore >= 4.1) newLevel = 'PREMIUM';
-  else if (newScore >= 2.1) newLevel = 'VERIFIED';
-
-  await prisma.userTrustScore.update({
-    where: { userId },
-    data: {
-      ...updates,
-      trustScore: Math.min(5.0, newScore),
-      trustLevel: newLevel,
-      lastCalculated: new Date(),
-    },
-  });
 }
 
 /**
- * Verify user phone number
+ * Verify user phone number using Result pattern
  */
-export async function verifyUserPhone(userId: string): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      phoneVerified: true,
-      phoneVerifiedAt: new Date(),
-    },
-  });
+export async function verifyUserPhone(userId: string): Promise<Result<void>> {
+  try {
+    if (!userId) {
+      return failure('User ID is required');
+    }
 
-  await updateTrustScore(userId, { phoneVerified: true });
+    // Update user phone verification status
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        phoneVerified: true,
+        phoneVerifiedAt: new Date(),
+      },
+    });
+
+    // Update trust score
+    const trustScoreResult = await updateTrustScore(userId, { phoneVerified: true });
+    if (!trustScoreResult.success) {
+      return failure(
+        'Phone verified but trust score update failed',
+        trustScoreResult.issues
+      );
+    }
+
+    return success(undefined);
+
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Record to update not found')) {
+      return failure('User not found');
+    }
+    
+    return failure(
+      'Failed to verify phone number',
+      [error instanceof Error ? error.message : 'Unknown database error']
+    );
+  }
 }
 
 /**
- * Get users by trust level
+ * Get users by trust level with proper pagination
  */
 export async function getUsersByTrustLevel(
   trustLevel: TrustLevel,
-  limit: number = 50
-): Promise<UserWithTrustScore[]> {
-  return prisma.user.findMany({
-    where: {
-      trustScore: {
-        trustLevel,
+  limit: number = LIMITS.PAGINATION.DEFAULT_PAGE_SIZE
+): Promise<Result<UserWithTrustScore[]>> {
+  try {
+    // Validate pagination limits
+    const validLimit = Math.min(
+      Math.max(limit, LIMITS.PAGINATION.MIN_PAGE_SIZE),
+      LIMITS.PAGINATION.MAX_PAGE_SIZE
+    );
+
+    const users = await prisma.user.findMany({
+      where: {
+        trustScore: {
+          trustLevel,
+        },
       },
-    },
-    include: {
-      trustScore: true,
-    },
-    take: limit,
-    orderBy: {
-      trustScore: {
-        trustScore: 'desc',
+      include: {
+        trustScore: true,
       },
-    },
-  });
+      take: validLimit,
+      orderBy: {
+        trustScore: {
+          trustScore: 'desc',
+        },
+      },
+    });
+
+    return success(users);
+
+  } catch (error) {
+    return failure(
+      'Failed to fetch users by trust level',
+      [error instanceof Error ? error.message : 'Unknown database error']
+    );
+  }
 }
 
 /**
