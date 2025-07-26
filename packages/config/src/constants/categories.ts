@@ -8,7 +8,7 @@ export const ISSUE_CATEGORIES = {
   SAFETY: 'safety',
 } as const;
 
-export type IssueCategory = typeof ISSUE_CATEGORIES[keyof typeof ISSUE_CATEGORIES];
+export type IssueCategoryConstant = typeof ISSUE_CATEGORIES[keyof typeof ISSUE_CATEGORIES];
 
 // Category metadata with Indonesian labels
 export const CATEGORY_METADATA = {
@@ -103,6 +103,6 @@ export const getCategoryOptions = () => {
 };
 
 // Category validation
-export const isValidCategory = (category: string): category is IssueCategory => {
-  return Object.values(ISSUE_CATEGORIES).includes(category as IssueCategory);
+export const isValidCategory = (category: string): category is IssueCategoryConstant => {
+  return Object.values(ISSUE_CATEGORIES).includes(category as IssueCategoryConstant);
 };

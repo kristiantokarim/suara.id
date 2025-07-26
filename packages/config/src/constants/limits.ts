@@ -192,7 +192,11 @@ export const LIMITS = {
 } as const;
 
 // Helper functions
-export const getTrustLevelLimits = (trustLevel: 'BASIC' | 'VERIFIED' | 'PREMIUM') => {
+export const getTrustLevelLimits = (trustLevel: 'BASIC' | 'VERIFIED' | 'PREMIUM'): {
+  dailySubmissions: number;
+  weeklySubmissions: number;
+  priority: number;
+} => {
   switch (trustLevel) {
     case 'BASIC':
       return {

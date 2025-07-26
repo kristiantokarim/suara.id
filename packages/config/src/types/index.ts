@@ -1,31 +1,35 @@
 // Re-export all types
 export * from './api';
 
-// Re-export database types
-export type {
-  User,
-  UserTrustScore,
-  Verification,
-  Submission,
-  SubmissionQualityScore,
-  Issue,
-  IssueCluster,
-  ClusterInsight,
-  IssueResponse,
-  AdminUser,
-  CommunityEndorsement,
-  AnalyticsEvent,
-  TrustLevel,
-  VerificationType,
-  VerificationStatus,
-  SubmissionStatus,
-  IssueCategory,
-  IssueSeverity,
-  IssueStatus,
-  ClusterStatus,
-  RespondentType,
-  AdminRole,
-} from '@suara/database';
+// TODO: Re-export database types once database package is built
+// export type {
+//   User,
+//   UserTrustScore,
+//   Verification,
+//   Submission,
+//   SubmissionQualityScore,
+//   Issue,
+//   IssueCluster,
+//   ClusterInsight,
+//   IssueResponse,
+//   AdminUser,
+//   CommunityEndorsement,
+//   AnalyticsEvent,
+//   TrustLevel,
+//   VerificationType,
+//   VerificationStatus,
+//   SubmissionStatus,
+//   IssueCategory,
+//   IssueSeverity,
+//   IssueStatus,
+//   ClusterStatus,
+//   RespondentType,
+//   AdminRole,
+// } from '@suara/database';
+
+// Temporary type definitions until database is built
+export type IssueCategory = 'INFRASTRUCTURE' | 'ENVIRONMENT' | 'SAFETY' | 'HEALTH' | 'EDUCATION' | 'GOVERNANCE' | 'SOCIAL' | 'OTHER';
+export type IssueSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 // Common utility types
 export interface Coordinates {
