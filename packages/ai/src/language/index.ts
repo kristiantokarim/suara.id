@@ -42,9 +42,9 @@ export function detectLanguage(text: string): LanguageDetectionResult {
   const normalizedText = text.toLowerCase();
   
   // Indonesian indicators
-  const indonesianWords = ['dan', 'atau', 'yang', 'ini', 'itu', 'ada', 'tidak', 'dengan', 'untuk', 'dari'];
-  const javaneseWords = ['lan', 'karo', 'sing', 'iki', 'iku', 'ana', 'ora', 'karo', 'kanggo', 'saka'];
-  const sundaneseWords = ['jeung', 'atawa', 'nu', 'ieu', 'eta', 'aya', 'henteu', 'sareng', 'pikeun', 'ti'];
+  const indonesianWords = ['dan', 'atau', 'yang', 'ini', 'itu', 'ada', 'tidak', 'dengan', 'untuk', 'dari', 'saya', 'akan', 'sudah', 'ingin'];
+  const javaneseWords = ['lan', 'karo', 'sing', 'iki', 'iku', 'ana', 'ora', 'kanggo', 'saka', 'kulo', 'badhe'];
+  const sundaneseWords = ['jeung', 'atawa', 'nu', 'ieu', 'eta', 'aya', 'henteu', 'sareng', 'pikeun', 'ti', 'abdi', 'hoyong'];
   
   let indonesianScore = 0;
   let javaneseScore = 0;
@@ -138,10 +138,13 @@ export function extractEntities(text: string): {
   const timePatterns = [
     /kemarin/gi,
     /hari\s+ini/gi,
-    /minggu\s+lalu/gi,
-    /bulan\s+lalu/gi,
+    /minggu\s+(?:yang\s+)?lalu/gi,
+    /bulan\s+(?:yang\s+)?lalu/gi,
+    /seminggu/gi,
+    /sebulan/gi,
     /pagi|siang|sore|malam/gi,
-    /jam\s+\d+/gi
+    /jam\s+\d+/gi,
+    /sejak/gi
   ];
   
   // Category keywords
@@ -201,11 +204,12 @@ export async function processIndonesianText(text: string): Promise<Result<Proces
     const normalized = normalizeIndonesianText(text);
     const entities = extractEntities(text);
     
-    // Simple tokenization
+    // Simple tokenization with Indonesian stopword filtering
+    const stopwords = ['di', 'ke', 'dari', 'pada', 'dan', 'atau', 'yang', 'ini', 'itu', 'ada', 'tidak', 'dengan', 'untuk'];
     const tokens = normalized
       .toLowerCase()
       .split(/\s+/)
-      .filter(token => token.length > 1);
+      .filter(token => token.length > 1 && !stopwords.includes(token));
     
     const result: ProcessedText = {
       original: text,
@@ -237,8 +241,16 @@ export function calculateTextSimilarity(text1: string, text2: string): number {
   const normalized1 = normalizeIndonesianText(text1);
   const normalized2 = normalizeIndonesianText(text2);
   
-  const tokens1 = new Set(normalized1.toLowerCase().split(/\s+/));
-  const tokens2 = new Set(normalized2.toLowerCase().split(/\s+/));
+  // Handle empty text cases
+  if (!normalized1.trim() && !normalized2.trim()) return 0;
+  if (!normalized1.trim() || !normalized2.trim()) return 0;
+  
+  const tokens1 = new Set(normalized1.toLowerCase().split(/\s+/).filter(t => t.length > 0));
+  const tokens2 = new Set(normalized2.toLowerCase().split(/\s+/).filter(t => t.length > 0));
+  
+  // Handle empty token sets
+  if (tokens1.size === 0 && tokens2.size === 0) return 0;
+  if (tokens1.size === 0 || tokens2.size === 0) return 0;
   
   const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
   const union = new Set([...tokens1, ...tokens2]);
@@ -254,8 +266,8 @@ export function calculateTextSimilarity(text1: string, text2: string): number {
  */
 export function hasAdministrativeReference(text: string): boolean {
   const adminPatterns = [
-    /rt\s*\d+/i,
-    /rw\s*\d+/i,
+    /rt\.?\s*\d+/i,
+    /rw\.?\s*\d+/i,
     /kelurahan/i,
     /kecamatan/i,
     /kabupaten/i,

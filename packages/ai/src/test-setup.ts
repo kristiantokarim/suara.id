@@ -14,8 +14,10 @@ jest.setTimeout(30000);
 
 // Mock configuration for testing
 process.env.NODE_ENV = 'test';
-process.env.AI_PROVIDER = 'mock';
+process.env.AI_PROVIDER = 'openai';
 process.env.ENABLE_AI_LOGGING = 'false';
+process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
+process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-only';
 
 // Indonesian test data constants
 export const INDONESIAN_TEST_DATA = {
@@ -78,6 +80,7 @@ export const createMockContext = (overrides = {}): any => ({
 
 // Mock submission data
 export const createMockSubmission = (overrides = {}): any => ({
+  id: `mock-submission-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
   description: 'Jalan rusak parah di depan rumah',
   location: {
     coordinates: [-6.2088, 106.8456], // Jakarta coordinates
@@ -89,6 +92,8 @@ export const createMockSubmission = (overrides = {}): any => ({
     category: 'INFRASTRUCTURE',
     severity: 'HIGH'
   },
+  createdAt: new Date(),
+  updatedAt: new Date(),
   ...overrides
 });
 
